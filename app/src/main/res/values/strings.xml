@@ -1,3 +1,20 @@
 <resources>
     <string name="app_name">SwipeClean</string>
+
+    <!-- Onboarding de permisos -->
+    <string name="permission_onboarding_title">Acceso a tus fotos</string>
+    <string name="permission_onboarding_body">SwipeClean necesita ver tu galería para mostrarte las fotos y mover a la papelera, en un solo lote, las que descartes. Nada sale de tu dispositivo.</string>
+    <string name="permission_onboarding_grant">Permitir acceso</string>
+    <string name="permission_denied_title">Sin acceso a la galería</string>
+    <string name="permission_denied_body">Denegaste el permiso. Actívalo desde los ajustes de la app para poder empezar.</string>
+    <string name="permission_open_settings">Abrir ajustes</string>
+    <string name="permission_partial_continue">Continuar con la selección actual</string>
+
+    <!-- Banner de acceso parcial -->
+    <string name="partial_access_message">Estás viendo solo las fotos que seleccionaste.</string>
+    <string name="partial_access_expand">Ampliar selección</string>
+
+    <!-- Resultado del borrado en lote -->
+    <string name="delete_cancelled">Borrado cancelado. No se eliminó ninguna foto.</string>
+    <string name="delete_error">No se pudieron borrar las fotos. Inténtalo de nuevo.</string>
 </resources>
