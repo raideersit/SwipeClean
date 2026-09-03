@@ -63,3 +63,46 @@ Una etapa a la vez. No adelantarse a la siguiente sin que la actual compile.
   usar la versión vigente y decirlo.
 - No tocar `local.properties` ni el Gradle wrapper.
 - No agregar dependencias nuevas sin justificarlo antes.
+## Protocolo de inicio de etapa
+
+Antes de escribir o modificar cualquier archivo de una etapa, detente y haz
+esto en un solo mensaje:
+
+1. Ejecuta `/status` mentalmente: reporta en qué modelo y effort estás
+   corriendo ahora mismo.
+2. Compara con la configuración recomendada para esta etapa (tabla abajo).
+   Si no coincide, dilo explícitamente y sugiere el comando exacto que el
+   usuario debe correr.
+3. Resume en 5-8 líneas qué vas a hacer: qué archivos crearás, cuáles
+   modificarás, y qué dependencias agregarás si aplica.
+4. Nombra las decisiones donde el prompt deja margen y di qué vas a elegir.
+5. Pregunta si procedes.
+
+No escribas ni un archivo hasta recibir confirmación explícita del usuario.
+
+### Configuración recomendada por etapa
+
+| Etapa | Modelo | Effort |
+|---|---|---|
+| 1 — Esqueleto y configuración | sonnet | high |
+| 2 — Capa de datos MediaStore | opusplan | high |
+| 3 — Room y repositorio | opusplan | high |
+| 4 — Permisos y borrado | opus | xhigh |
+| 5 — Pantalla Home | sonnet | high |
+| 6 — Pantalla Swipe | opusplan | high |
+| 7 — Resumen, ajustes y cierre | sonnet | high |
+
+El usuario cambia esto con `/model <alias>` y `/effort <nivel>`. Tú no puedes
+cambiarlo: solo avisar cuando no calce.
+
+## Protocolo de cierre de etapa
+
+Al terminar una etapa, antes de dar por concluido:
+
+1. Corre `./gradlew assembleDebug` y reporta el resultado real, sin asumir.
+2. Si falla, arregla y vuelve a compilar. No entregues una etapa que no compila.
+3. Lista los archivos creados y modificados.
+4. Señala cualquier punto donde te desviaste del prompt de la etapa y por qué.
+5. Recuerda al usuario commitear antes de seguir.
+
+No avances a la siguiente etapa por iniciativa propia.
