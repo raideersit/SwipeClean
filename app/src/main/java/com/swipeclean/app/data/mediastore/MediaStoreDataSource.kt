@@ -53,15 +53,23 @@ class MediaStoreDataSource @Inject constructor(
     )
 
     /**
-     * Devuelve una página de [MediaQuery.PAGE_SIZE] elementos, ordenados por fecha
-     * de alta descendente. [page] es el índice de página en base 0.
+     * Devuelve una página de [limit] elementos a partir de [offset], ordenados por
+     * fecha de alta descendente.
+     *
+     * [excludedIds] son `mediaId` que se descartan en la propia consulta mediante
+     * `_ID NOT IN (...)`; nunca se filtran después en memoria.
      */
-    suspend fun getPage(query: MediaQuery, page: Int): List<MediaItem> =
+    suspend fun getPage(
+        query: MediaQuery,
+        offset: Int,
+        limit: Int,
+        excludedIds: Collection<Long> = emptyList(),
+    ): List<MediaItem> =
         withContext(Dispatchers.IO) {
-            val limit = MediaQuery.PAGE_SIZE
-            val offset = page.coerceAtLeast(0) * limit
-            val items = ArrayList<MediaItem>(limit)
-            queryMedia(query, limit, offset)?.use { cursor ->
+            val safeOffset = offset.coerceAtLeast(0)
+            val safeLimit = limit.coerceAtLeast(0)
+            val items = ArrayList<MediaItem>(safeLimit.coerceAtMost(512))
+            queryMedia(query, safeLimit, safeOffset, excludedIds)?.use { cursor ->
                 val cols = Columns(cursor)
                 while (cursor.moveToNext()) {
                     items += cursor.toMediaItem(cols)
@@ -71,13 +79,36 @@ class MediaStoreDataSource @Inject constructor(
         }
 
     /**
+     * Todos los `_ID` de imágenes y videos del volumen externo, sin filtros. Sirve
+     * para detectar registros huérfanos en el historial local (fotos que ya no
+     * existen en MediaStore).
+     */
+    suspend fun getAllMediaIds(): List<Long> =
+        withContext(Dispatchers.IO) {
+            val ids = ArrayList<Long>()
+            val idProjection = arrayOf(MediaStore.Files.FileColumns._ID)
+            val selection = "${MediaStore.Files.FileColumns.MEDIA_TYPE} IN (?, ?)"
+            val selectionArgs = arrayOf(
+                MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString(),
+                MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString(),
+            )
+            resolver.query(collectionUri, idProjection, selection, selectionArgs, null)?.use { cursor ->
+                val idColumn = cursor.getColumnIndexOrThrow(MediaStore.Files.FileColumns._ID)
+                while (cursor.moveToNext()) {
+                    ids += cursor.getLong(idColumn)
+                }
+            }
+            ids
+        }
+
+    /**
      * Agrupa todos los elementos que cumplen [query] por álbum y devuelve la lista
      * de [MediaBucket] con conteo, peso total y portada (elemento más reciente).
      */
     suspend fun getBuckets(query: MediaQuery): List<MediaBucket> =
         withContext(Dispatchers.IO) {
             val porBucket = LinkedHashMap<Long, MutableBucket>()
-            queryMedia(query, limit = null, offset = 0)?.use { cursor ->
+            queryMedia(query, limit = null, offset = 0, excludedIds = emptyList())?.use { cursor ->
                 val cols = Columns(cursor)
                 while (cursor.moveToNext()) {
                     val item = cursor.toMediaItem(cols)
@@ -131,8 +162,13 @@ class MediaStoreDataSource @Inject constructor(
      *
      * Con [limit] nulo se devuelve el conjunto completo (sin paginar).
      */
-    private fun queryMedia(query: MediaQuery, limit: Int?, offset: Int): Cursor? {
-        val (selection, selectionArgs) = buildSelection(query)
+    private fun queryMedia(
+        query: MediaQuery,
+        limit: Int?,
+        offset: Int,
+        excludedIds: Collection<Long>,
+    ): Cursor? {
+        val (selection, selectionArgs) = buildSelection(query, excludedIds)
         val sortColumn = MediaStore.Files.FileColumns.DATE_ADDED
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -162,7 +198,10 @@ class MediaStoreDataSource @Inject constructor(
     }
 
     /** Construye el `WHERE` y sus argumentos a partir de los filtros de [query]. */
-    private fun buildSelection(query: MediaQuery): Pair<String, Array<String>> {
+    private fun buildSelection(
+        query: MediaQuery,
+        excludedIds: Collection<Long>,
+    ): Pair<String, Array<String>> {
         val clauses = ArrayList<String>()
         val args = ArrayList<String>()
 
@@ -194,6 +233,13 @@ class MediaStoreDataSource @Inject constructor(
         if (query.minSizeBytes > 0L) {
             clauses += "${MediaStore.Files.FileColumns.SIZE} >= ?"
             args += query.minSizeBytes.toString()
+        }
+
+        if (excludedIds.isNotEmpty()) {
+            // Los `mediaId` son Long generados por MediaStore: interpolarlos como
+            // literales es seguro y evita el tope de ~999 argumentos de enlace de
+            // SQLite cuando el historial crece.
+            clauses += "${MediaStore.Files.FileColumns._ID} NOT IN (${excludedIds.joinToString(",")})"
         }
 
         return clauses.joinToString(" AND ") to args.toTypedArray()
