@@ -13,13 +13,19 @@ import android.os.Looper
 import android.provider.MediaStore
 import com.swipeclean.app.domain.model.MediaBucket
 import com.swipeclean.app.domain.model.MediaItem
+import com.swipeclean.app.domain.model.MediaMonthGroup
 import com.swipeclean.app.domain.model.MediaQuery
+import com.swipeclean.app.domain.model.MediaSortOrder
+import com.swipeclean.app.domain.model.MediaTypeFilter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.YearMonth
+import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -102,13 +108,17 @@ class MediaStoreDataSource @Inject constructor(
         }
 
     /**
-     * Agrupa todos los elementos que cumplen [query] por álbum y devuelve la lista
-     * de [MediaBucket] con conteo, peso total y portada (elemento más reciente).
+     * Agrupa los elementos que cumplen [query] (excluyendo [excludedIds]) por álbum
+     * y devuelve la lista de [MediaBucket] con conteo, peso total y portada
+     * (elemento más reciente).
      */
-    suspend fun getBuckets(query: MediaQuery): List<MediaBucket> =
+    suspend fun getBuckets(
+        query: MediaQuery,
+        excludedIds: Collection<Long> = emptyList(),
+    ): List<MediaBucket> =
         withContext(Dispatchers.IO) {
             val porBucket = LinkedHashMap<Long, MutableBucket>()
-            queryMedia(query, limit = null, offset = 0, excludedIds = emptyList())?.use { cursor ->
+            queryMedia(query, limit = null, offset = 0, excludedIds = excludedIds)?.use { cursor ->
                 val cols = Columns(cursor)
                 while (cursor.moveToNext()) {
                     val item = cursor.toMediaItem(cols)
@@ -130,6 +140,45 @@ class MediaStoreDataSource @Inject constructor(
                 )
             }
         }
+
+    /**
+     * Agrupa los elementos que cumplen [query] (excluyendo [excludedIds]) por mes
+     * calendario de alta, para la sección "Por fecha" de la Home.
+     */
+    suspend fun getMonthGroups(
+        query: MediaQuery,
+        excludedIds: Collection<Long> = emptyList(),
+    ): List<MediaMonthGroup> =
+        withContext(Dispatchers.IO) {
+            val porMes = LinkedHashMap<YearMonth, MutableMonthGroup>()
+            queryMedia(query, limit = null, offset = 0, excludedIds = excludedIds)?.use { cursor ->
+                val cols = Columns(cursor)
+                while (cursor.moveToNext()) {
+                    val item = cursor.toMediaItem(cols)
+                    val yearMonth = yearMonthOf(item.dateAddedMillis)
+                    // El cursor viene ordenado DESC, así que el orden de inserción en
+                    // el mapa ya queda del mes más reciente al más antiguo.
+                    val acc = porMes.getOrPut(yearMonth) { MutableMonthGroup(yearMonth) }
+                    acc.cantidad++
+                    acc.pesoTotalBytes += item.sizeBytes
+                }
+            }
+            val zona = ZoneId.systemDefault()
+            porMes.values.map {
+                MediaMonthGroup(
+                    year = it.yearMonth.year,
+                    month = it.yearMonth.monthValue,
+                    startMillis = it.yearMonth.atDay(1).atStartOfDay(zona).toInstant().toEpochMilli(),
+                    endMillis = it.yearMonth.plusMonths(1).atDay(1).atStartOfDay(zona).toInstant()
+                        .toEpochMilli(),
+                    cantidad = it.cantidad,
+                    pesoTotalBytes = it.pesoTotalBytes,
+                )
+            }
+        }
+
+    private fun yearMonthOf(dateAddedMillis: Long): YearMonth =
+        YearMonth.from(Instant.ofEpochMilli(dateAddedMillis).atZone(ZoneId.systemDefault()))
 
     /**
      * Emite [Unit] cada vez que cambia el contenido de imágenes o videos del
@@ -169,7 +218,10 @@ class MediaStoreDataSource @Inject constructor(
         excludedIds: Collection<Long>,
     ): Cursor? {
         val (selection, selectionArgs) = buildSelection(query, excludedIds)
-        val sortColumn = MediaStore.Files.FileColumns.DATE_ADDED
+        val sortColumn = when (query.sortOrder) {
+            MediaSortOrder.DATE_DESC -> MediaStore.Files.FileColumns.DATE_ADDED
+            MediaSortOrder.SIZE_DESC -> MediaStore.Files.FileColumns.SIZE
+        }
 
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             val args = Bundle().apply {
@@ -206,13 +258,33 @@ class MediaStoreDataSource @Inject constructor(
         val args = ArrayList<String>()
 
         val typeColumn = MediaStore.Files.FileColumns.MEDIA_TYPE
-        if (query.includeVideos) {
-            clauses += "$typeColumn IN (?, ?)"
-            args += MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString()
-            args += MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString()
-        } else {
-            clauses += "$typeColumn = ?"
-            args += MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString()
+        when (query.mediaType) {
+            MediaTypeFilter.ALL -> {
+                clauses += "$typeColumn IN (?, ?)"
+                args += MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString()
+                args += MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString()
+            }
+
+            MediaTypeFilter.IMAGES -> {
+                clauses += "$typeColumn = ?"
+                args += MediaStore.Files.FileColumns.MEDIA_TYPE_IMAGE.toString()
+            }
+
+            MediaTypeFilter.VIDEOS -> {
+                clauses += "$typeColumn = ?"
+                args += MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO.toString()
+            }
+        }
+
+        if (query.screenshotsOnly) {
+            // RELATIVE_PATH no existe antes de API 29: se cae a filtrar por el
+            // nombre de carpeta, que es como se identificaban capturas antes de Q.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                clauses += "${MediaStore.Files.FileColumns.RELATIVE_PATH} LIKE ?"
+            } else {
+                clauses += "${MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME} LIKE ?"
+            }
+            args += "%Screenshot%"
         }
 
         query.bucketId?.let {
@@ -288,6 +360,12 @@ class MediaStoreDataSource @Inject constructor(
         val nombre: String,
         val coverUri: Uri?,
     ) {
+        var cantidad: Int = 0
+        var pesoTotalBytes: Long = 0L
+    }
+
+    /** Acumulador mutable para agregar un mes mientras se recorre el cursor. */
+    private class MutableMonthGroup(val yearMonth: YearMonth) {
         var cantidad: Int = 0
         var pesoTotalBytes: Long = 0L
     }

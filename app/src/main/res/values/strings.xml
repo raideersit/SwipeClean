@@ -17,4 +17,25 @@
     <!-- Resultado del borrado en lote -->
     <string name="delete_cancelled">Borrado cancelado. No se eliminó ninguna foto.</string>
     <string name="delete_error">No se pudieron borrar las fotos. Inténtalo de nuevo.</string>
+
+    <!-- Pantalla Home -->
+    <string name="home_title">Inicio</string>
+    <string name="home_settings_cd">Ajustes</string>
+    <string name="home_freed_space">%1$s liberados hasta ahora</string>
+    <string name="home_chip_screenshots">Capturas de pantalla</string>
+    <string name="home_chip_heaviest">Fotos más pesadas</string>
+    <string name="home_chip_videos">Videos</string>
+    <string name="home_section_folders">Carpetas</string>
+    <string name="home_section_by_date">Por fecha</string>
+    <string name="home_bucket_meta">%1$d · %2$s</string>
+    <string name="home_month_meta">%1$d · %2$s</string>
+    <string name="home_bucket_cover_cd">Portada del álbum %1$s</string>
+    <string name="home_empty_title">¡Todo revisado!</string>
+    <string name="home_empty_body">Ya pasaste por todas tus fotos y videos. Vuelve cuando agregues contenido nuevo.</string>
+    <string name="home_empty_reset">Reiniciar historial</string>
+
+    <!-- Placeholders de pantallas de etapas futuras -->
+    <string name="placeholder_swipe">Pantalla de swipe (etapa 6)</string>
+    <string name="placeholder_summary">Resumen (etapa 7)</string>
+    <string name="placeholder_settings">Ajustes (etapa 7)</string>
 </resources>

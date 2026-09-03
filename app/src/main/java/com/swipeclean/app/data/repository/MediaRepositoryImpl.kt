@@ -7,6 +7,7 @@ import com.swipeclean.app.data.local.entity.SessionStatsEntity
 import com.swipeclean.app.data.mediastore.MediaStoreDataSource
 import com.swipeclean.app.domain.model.MediaBucket
 import com.swipeclean.app.domain.model.MediaItem
+import com.swipeclean.app.domain.model.MediaMonthGroup
 import com.swipeclean.app.domain.model.MediaQuery
 import com.swipeclean.app.domain.model.ReviewDecision
 import com.swipeclean.app.domain.repository.MediaRepository
@@ -28,7 +29,13 @@ class MediaRepositoryImpl @Inject constructor(
     override fun getBuckets(): Flow<List<MediaBucket>> =
         mediaStore.observeMediaChanges()
             .onStart { emit(Unit) }
-            .map { mediaStore.getBuckets(MediaQuery()) }
+            .map { mediaStore.getBuckets(MediaQuery(), reviewedMediaDao.getAllReviewedIds()) }
+            .flowOn(Dispatchers.IO)
+
+    override fun getMonthGroups(): Flow<List<MediaMonthGroup>> =
+        mediaStore.observeMediaChanges()
+            .onStart { emit(Unit) }
+            .map { mediaStore.getMonthGroups(MediaQuery(), reviewedMediaDao.getAllReviewedIds()) }
             .flowOn(Dispatchers.IO)
 
     override suspend fun getMediaPage(query: MediaQuery, offset: Int, limit: Int): List<MediaItem> {

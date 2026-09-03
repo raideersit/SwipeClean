@@ -2,6 +2,7 @@ package com.swipeclean.app.domain.repository
 
 import com.swipeclean.app.domain.model.MediaBucket
 import com.swipeclean.app.domain.model.MediaItem
+import com.swipeclean.app.domain.model.MediaMonthGroup
 import com.swipeclean.app.domain.model.MediaQuery
 import com.swipeclean.app.domain.model.ReviewDecision
 import kotlinx.coroutines.flow.Flow
@@ -14,8 +15,17 @@ import kotlinx.coroutines.flow.Flow
  */
 interface MediaRepository {
 
-    /** Álbumes de la galería con conteo y peso agregados. Se re-emite al cambiar MediaStore. */
+    /**
+     * Álbumes con fotos pendientes de revisar, con conteo y peso agregados.
+     * Se re-emite al cambiar MediaStore.
+     */
     fun getBuckets(): Flow<List<MediaBucket>>
+
+    /**
+     * Meses con fotos pendientes de revisar, con conteo y peso agregados.
+     * Se re-emite al cambiar MediaStore.
+     */
+    fun getMonthGroups(): Flow<List<MediaMonthGroup>>
 
     /**
      * Página de elementos que cumplen [query], ordenada por fecha de alta descendente,

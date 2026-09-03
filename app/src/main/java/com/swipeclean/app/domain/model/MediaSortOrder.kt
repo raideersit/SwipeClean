@@ -1,0 +1,13 @@
+package com.swipeclean.app.domain.model
+
+import kotlinx.serialization.Serializable
+
+/**
+ * Orden de una [MediaQuery]. Ambos son siempre descendentes: lo más nuevo o lo
+ * más pesado primero.
+ */
+@Serializable
+enum class MediaSortOrder {
+    DATE_DESC,
+    SIZE_DESC,
+}

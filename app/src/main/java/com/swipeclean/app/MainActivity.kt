@@ -4,13 +4,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
+import com.swipeclean.app.ui.navigation.SwipeCleanNavHost
 import com.swipeclean.app.ui.theme.SwipeCleanTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -25,22 +22,12 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Sin @Preview: el root depende de Hilt (vía HomeViewModel dentro del NavHost),
+// que no está disponible en el renderer de previews de Compose. Las pantallas
+// reales (HomeScreen y sus componentes) sí tienen su preview.
 @Composable
 private fun SwipeCleanRoot() {
     SwipeCleanTheme {
-        // Andamiaje vacío: la navegación y las pantallas llegan en etapas posteriores.
-        Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            )
-        }
+        SwipeCleanNavHost(modifier = Modifier.fillMaxSize())
     }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun SwipeCleanRootPreview() {
-    SwipeCleanRoot()
 }
