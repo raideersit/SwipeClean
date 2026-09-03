@@ -67,6 +67,10 @@ dependencies {
 
     // Carga de imágenes desde MediaStore
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
+
+    // Persistencia de ajustes (tema, switches)
+    implementation(libs.androidx.datastore.preferences)
 
     // Corrutinas
     implementation(libs.kotlinx.coroutines.android)

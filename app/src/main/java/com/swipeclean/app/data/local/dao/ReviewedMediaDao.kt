@@ -5,6 +5,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.swipeclean.app.data.local.entity.ReviewedMediaEntity
+import com.swipeclean.app.domain.model.ReviewDecision
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ReviewedMediaDao {
@@ -16,6 +18,17 @@ interface ReviewedMediaDao {
     /** IDs ya decididos, para excluirlos de la consulta a MediaStore. */
     @Query("SELECT mediaId FROM reviewed_media")
     suspend fun getAllReviewedIds(): List<Long>
+
+    /**
+     * Registros con una decisión concreta, más recientes primero. Alimenta el grid
+     * del resumen (decisión [ReviewDecision.DELETED]).
+     */
+    @Query("SELECT * FROM reviewed_media WHERE decision = :decision ORDER BY reviewedAt DESC")
+    fun observeByDecision(decision: ReviewDecision): Flow<List<ReviewedMediaEntity>>
+
+    /** Borra los registros de estos `mediaId` (fotos ya eliminadas y confirmadas). */
+    @Query("DELETE FROM reviewed_media WHERE mediaId IN (:mediaIds)")
+    suspend fun deleteByIds(mediaIds: List<Long>)
 
     /** Deshacer una decisión concreta. */
     @Query("DELETE FROM reviewed_media WHERE mediaId = :mediaId")

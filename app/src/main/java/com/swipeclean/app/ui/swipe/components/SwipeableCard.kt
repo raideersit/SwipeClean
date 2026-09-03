@@ -41,6 +41,7 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -176,6 +177,7 @@ fun SwipeableCard(
                 )
             },
     ) {
+        val errorPainter = painterResource(R.drawable.ic_media_error)
         AsyncImage(
             model = ImageRequest.Builder(LocalPlatformContext.current)
                 .data(item.uri)
@@ -186,6 +188,8 @@ fun SwipeableCard(
                 item.displayName,
             ),
             contentScale = ContentScale.Fit,
+            error = errorPainter,
+            fallback = errorPainter,
             modifier = Modifier.fillMaxSize(),
         )
 

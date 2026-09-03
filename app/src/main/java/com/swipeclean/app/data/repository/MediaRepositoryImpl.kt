@@ -26,17 +26,36 @@ class MediaRepositoryImpl @Inject constructor(
     private val sessionStatsDao: SessionStatsDao,
 ) : MediaRepository {
 
-    override fun getBuckets(): Flow<List<MediaBucket>> =
+    override fun getBuckets(query: MediaQuery): Flow<List<MediaBucket>> =
         mediaStore.observeMediaChanges()
             .onStart { emit(Unit) }
-            .map { mediaStore.getBuckets(MediaQuery(), reviewedMediaDao.getAllReviewedIds()) }
+            .map { mediaStore.getBuckets(query, reviewedMediaDao.getAllReviewedIds()) }
             .flowOn(Dispatchers.IO)
 
-    override fun getMonthGroups(): Flow<List<MediaMonthGroup>> =
+    override fun getMonthGroups(query: MediaQuery): Flow<List<MediaMonthGroup>> =
         mediaStore.observeMediaChanges()
             .onStart { emit(Unit) }
-            .map { mediaStore.getMonthGroups(MediaQuery(), reviewedMediaDao.getAllReviewedIds()) }
+            .map { mediaStore.getMonthGroups(query, reviewedMediaDao.getAllReviewedIds()) }
             .flowOn(Dispatchers.IO)
+
+    override fun observeMarkedForDeletion(): Flow<List<MediaItem>> =
+        reviewedMediaDao.observeByDecision(ReviewDecision.DELETED)
+            .map { rows ->
+                val porId = mediaStore.getItemsByIds(rows.map { it.mediaId }).associateBy { it.id }
+                // Se respeta el orden del historial (más reciente primero) y se
+                // descartan las que ya no existen en MediaStore.
+                rows.mapNotNull { porId[it.mediaId] }
+            }
+            .flowOn(Dispatchers.IO)
+
+    override suspend fun presentMediaIds(mediaIds: List<Long>): Set<Long> {
+        if (mediaIds.isEmpty()) return emptySet()
+        return mediaStore.getItemsByIds(mediaIds).mapTo(HashSet()) { it.id }
+    }
+
+    override suspend fun forgetReviewed(mediaIds: List<Long>) {
+        if (mediaIds.isNotEmpty()) reviewedMediaDao.deleteByIds(mediaIds)
+    }
 
     override suspend fun getMediaPage(query: MediaQuery, offset: Int, limit: Int): List<MediaItem> {
         // El filtrado de revisados ocurre en la consulta a MediaStore (cláusula
@@ -76,6 +95,8 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override fun observeTotalFreedBytes(): Flow<Long> = sessionStatsDao.observeTotalFreedBytes()
+
+    override fun observeTotalDeletedCount(): Flow<Int> = sessionStatsDao.observeTotalDeletedCount()
 
     override suspend fun clearHistory() {
         reviewedMediaDao.clearAll()

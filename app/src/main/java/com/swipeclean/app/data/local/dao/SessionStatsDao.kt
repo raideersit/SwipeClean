@@ -16,6 +16,10 @@ interface SessionStatsDao {
     @Query("SELECT COALESCE(SUM(bytesLiberados), 0) FROM session_stats")
     fun observeTotalFreedBytes(): Flow<Long>
 
+    /** Total histórico de fotos eliminadas (suma sobre todas las sesiones). */
+    @Query("SELECT COALESCE(SUM(fotosEliminadas), 0) FROM session_stats")
+    fun observeTotalDeletedCount(): Flow<Int>
+
     /** Reset total de estadísticas (ajustes). */
     @Query("DELETE FROM session_stats")
     suspend fun clearAll()

@@ -47,7 +47,49 @@
     <string name="swipe_overlay_delete_cd">Marcada para eliminar</string>
     <string name="swipe_overlay_keep_cd">Marcada para conservar</string>
 
-    <!-- Placeholders de pantallas de etapas futuras -->
-    <string name="placeholder_summary">Resumen (etapa 7)</string>
-    <string name="placeholder_settings">Ajustes (etapa 7)</string>
+    <!-- Pantalla de resumen -->
+    <string name="summary_title">Resumen</string>
+    <string name="summary_back_cd">Volver</string>
+    <string name="summary_hint">Toca una foto para conservarla y quitarla de la lista.</string>
+    <string name="summary_delete">Eliminar</string>
+    <string name="summary_deleting">Eliminando…</string>
+    <string name="summary_thumb_remove_cd">Conservar la foto %1$s y quitarla de la lista</string>
+    <string name="summary_empty_title">No hay nada que eliminar</string>
+    <string name="summary_empty_body">No marcaste ninguna foto para borrar en esta sesión.</string>
+    <string name="summary_success_title">¡Listo!</string>
+    <string name="summary_success_freed">Liberaste %1$s</string>
+    <string name="summary_keep_cleaning">Seguir limpiando</string>
+    <string name="summary_go_home">Volver al inicio</string>
+    <plurals name="summary_will_free">
+        <item quantity="one">Vas a liberar %1$s (%2$d foto)</item>
+        <item quantity="other">Vas a liberar %1$s (%2$d fotos)</item>
+    </plurals>
+    <plurals name="summary_success_detail">
+        <item quantity="one">Eliminaste %1$d foto</item>
+        <item quantity="other">Eliminaste %1$d fotos</item>
+    </plurals>
+
+    <!-- Pantalla de ajustes -->
+    <string name="settings_title">Ajustes</string>
+    <string name="settings_back_cd">Volver</string>
+    <string name="settings_section_delete">Borrado</string>
+    <string name="settings_permanent_delete">Borrado permanente</string>
+    <string name="settings_permanent_delete_warning">Las fotos se borran de inmediato y no podrás recuperarlas.</string>
+    <string name="settings_trash_desc">Las fotos van a la papelera del sistema y se pueden recuperar por un tiempo.</string>
+    <string name="settings_include_videos">Incluir videos</string>
+    <string name="settings_include_videos_desc">Muestra también videos, no solo fotos.</string>
+    <string name="settings_section_theme">Tema</string>
+    <string name="settings_theme_light">Claro</string>
+    <string name="settings_theme_dark">Oscuro</string>
+    <string name="settings_theme_system">Según el sistema</string>
+    <string name="settings_section_stats">Estadísticas</string>
+    <string name="settings_stat_freed">Espacio liberado</string>
+    <string name="settings_stat_deleted">Fotos eliminadas</string>
+    <string name="settings_section_history">Historial</string>
+    <string name="settings_reset_history">Restablecer historial de revisadas</string>
+    <string name="settings_reset_history_desc">Volverás a ver todas las fotos que ya habías revisado.</string>
+    <string name="settings_reset_dialog_title">¿Restablecer el historial?</string>
+    <string name="settings_reset_dialog_body">Se borrará el registro de fotos revisadas y las estadísticas. Esta acción no se puede deshacer.</string>
+    <string name="settings_reset_dialog_confirm">Restablecer</string>
+    <string name="settings_reset_dialog_cancel">Cancelar</string>
 </resources>

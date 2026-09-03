@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -191,6 +192,7 @@ private fun BackCard(item: MediaItem, depth: Int) {
             .clip(RoundedCornerShape(20.dp))
             .background(Color(0xFF161619)),
     ) {
+        val errorPainter = painterResource(R.drawable.ic_media_error)
         AsyncImage(
             model = ImageRequest.Builder(LocalPlatformContext.current)
                 .data(item.uri)
@@ -198,6 +200,8 @@ private fun BackCard(item: MediaItem, depth: Int) {
                 .build(),
             contentDescription = null,
             contentScale = ContentScale.Fit,
+            error = errorPainter,
+            fallback = errorPainter,
             modifier = Modifier
                 .fillMaxSize()
                 .alpha(0.5f),

@@ -20,5 +20,7 @@ sealed interface HomeUiState {
         val buckets: List<MediaBucket>,
         val monthGroups: List<MediaMonthGroup>,
         val partialAccess: Boolean = false,
+        /** Ajuste "incluir videos": oculta el chip de Videos y acota las sesiones. */
+        val includeVideos: Boolean = true,
     ) : HomeUiState
 }

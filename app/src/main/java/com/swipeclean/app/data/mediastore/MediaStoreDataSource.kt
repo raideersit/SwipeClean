@@ -85,6 +85,25 @@ class MediaStoreDataSource @Inject constructor(
         }
 
     /**
+     * Resuelve [ids] a [MediaItem]. Los `_ID` que ya no existen en MediaStore se
+     * omiten (foto borrada desde fuera). El orden del resultado no está definido:
+     * el llamante reordena si lo necesita.
+     */
+    suspend fun getItemsByIds(ids: Collection<Long>): List<MediaItem> =
+        withContext(Dispatchers.IO) {
+            if (ids.isEmpty()) return@withContext emptyList()
+            val items = ArrayList<MediaItem>(ids.size)
+            val selection = "${MediaStore.Files.FileColumns._ID} IN (${ids.joinToString(",")})"
+            resolver.query(collectionUri, projection, selection, null, null)?.use { cursor ->
+                val cols = Columns(cursor)
+                while (cursor.moveToNext()) {
+                    items += cursor.toMediaItem(cols)
+                }
+            }
+            items
+        }
+
+    /**
      * Cuenta los elementos que cumplen [query] excluyendo [excludedIds], sin
      * materializar filas: se usa `Cursor.getCount()`. Sirve para el total del
      * contador "12 / 214" de la pantalla de swipe.

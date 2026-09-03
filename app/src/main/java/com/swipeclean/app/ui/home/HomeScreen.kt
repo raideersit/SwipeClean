@@ -142,10 +142,12 @@ private fun HomeContent(
                     onClick = { onOpenChip(HomeChip.HEAVIEST_PHOTOS) },
                     label = { Text(stringResource(R.string.home_chip_heaviest)) },
                 )
-                AssistChip(
-                    onClick = { onOpenChip(HomeChip.VIDEOS) },
-                    label = { Text(stringResource(R.string.home_chip_videos)) },
-                )
+                if (state.includeVideos) {
+                    AssistChip(
+                        onClick = { onOpenChip(HomeChip.VIDEOS) },
+                        label = { Text(stringResource(R.string.home_chip_videos)) },
+                    )
+                }
             }
         }
 
