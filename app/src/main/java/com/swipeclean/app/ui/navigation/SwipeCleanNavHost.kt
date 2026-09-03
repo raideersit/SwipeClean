@@ -28,14 +28,14 @@ import com.swipeclean.app.ui.home.HomeUiState
 import com.swipeclean.app.ui.home.HomeViewModel
 import com.swipeclean.app.ui.permissions.PermissionGate
 import com.swipeclean.app.ui.permissions.rememberMediaPermissionUi
+import com.swipeclean.app.ui.swipe.SwipeScreen
 import com.swipeclean.app.ui.theme.SwipeCleanTheme
 
 /**
  * Grafo de navegación de la app. El punto de entrada es [Onboarding]: si ya hay
  * permiso concedido salta a [Home] de inmediato, sin mostrar nada intermedio.
  *
- * [Swipe]/[Summary]/[Settings] son esqueletos vacíos: su contenido llega en las
- * etapas 6 y 7.
+ * [Summary]/[Settings] son esqueletos vacíos: su contenido llega en la etapa 7.
  */
 @Composable
 fun SwipeCleanNavHost(
@@ -110,7 +110,14 @@ fun SwipeCleanNavHost(
         }
 
         composable<Swipe> {
-            PlaceholderScreen(titulo = stringResource(R.string.placeholder_swipe))
+            SwipeScreen(
+                onClose = { navController.popBackStack() },
+                onFinished = {
+                    navController.navigate(Summary) {
+                        popUpTo(Home)
+                    }
+                },
+            )
         }
         composable<Summary> {
             PlaceholderScreen(titulo = stringResource(R.string.placeholder_summary))

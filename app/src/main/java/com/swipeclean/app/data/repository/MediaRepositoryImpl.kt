@@ -45,6 +45,11 @@ class MediaRepositoryImpl @Inject constructor(
         return mediaStore.getPage(query, offset, limit, reviewedIds)
     }
 
+    override suspend fun countMedia(query: MediaQuery): Int {
+        val reviewedIds = reviewedMediaDao.getAllReviewedIds()
+        return mediaStore.countMedia(query, reviewedIds)
+    }
+
     override suspend fun markReviewed(mediaId: Long, decision: ReviewDecision, sizeBytes: Long) {
         reviewedMediaDao.upsert(
             ReviewedMediaEntity(

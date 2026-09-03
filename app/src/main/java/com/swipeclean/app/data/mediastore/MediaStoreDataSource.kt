@@ -85,6 +85,19 @@ class MediaStoreDataSource @Inject constructor(
         }
 
     /**
+     * Cuenta los elementos que cumplen [query] excluyendo [excludedIds], sin
+     * materializar filas: se usa `Cursor.getCount()`. Sirve para el total del
+     * contador "12 / 214" de la pantalla de swipe.
+     */
+    suspend fun countMedia(
+        query: MediaQuery,
+        excludedIds: Collection<Long> = emptyList(),
+    ): Int =
+        withContext(Dispatchers.IO) {
+            queryMedia(query, limit = null, offset = 0, excludedIds = excludedIds)?.use { it.count } ?: 0
+        }
+
+    /**
      * Todos los `_ID` de imágenes y videos del volumen externo, sin filtros. Sirve
      * para detectar registros huérfanos en el historial local (fotos que ya no
      * existen en MediaStore).

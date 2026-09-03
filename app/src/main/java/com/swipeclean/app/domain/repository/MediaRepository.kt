@@ -33,6 +33,12 @@ interface MediaRepository {
      */
     suspend fun getMediaPage(query: MediaQuery, offset: Int, limit: Int): List<MediaItem>
 
+    /**
+     * Cantidad total de elementos que cumplen [query] y aún no están en
+     * `reviewed_media`. Se calcula una vez al abrir la sesión de swipe.
+     */
+    suspend fun countMedia(query: MediaQuery): Int
+
     /** Registra la decisión sobre una foto. Sobrescribe si el `mediaId` ya estaba. */
     suspend fun markReviewed(mediaId: Long, decision: ReviewDecision, sizeBytes: Long)
 
