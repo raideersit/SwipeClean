@@ -15,3 +15,13 @@
 local.properties
 .idea/
 .idea/
+
+# Firma de release: nunca subir el keystore ni sus contraseñas
+/keystore.properties
+/keystore/
+*.jks
+*.keystore
+
+# Artefactos de build fuera de /build
+*.apk
+*.aab
