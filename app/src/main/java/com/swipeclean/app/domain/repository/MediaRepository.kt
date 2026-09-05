@@ -47,10 +47,19 @@ interface MediaRepository {
     suspend fun forgetReviewed(mediaIds: List<Long>)
 
     /**
-     * Página de elementos que cumplen [query], ordenada por fecha de alta descendente,
-     * ya EXCLUYENDO los `mediaId` presentes en `reviewed_media`.
+     * Los primeros [limit] elementos que cumplen [query] según su orden, EXCLUYENDO
+     * tanto los `mediaId` presentes en `reviewed_media` como los de [excludeIds].
+     *
+     * No hay offset a propósito: el llamante pasa en [excludeIds] lo que ya tiene y
+     * pide siempre desde el principio. Un offset obligaría a suponer que Room ya
+     * registró las decisiones recién tomadas, y si esa suposición falla la
+     * paginación se salta fotos en silencio.
      */
-    suspend fun getMediaPage(query: MediaQuery, offset: Int, limit: Int): List<MediaItem>
+    suspend fun getMediaPage(
+        query: MediaQuery,
+        limit: Int,
+        excludeIds: Collection<Long> = emptyList(),
+    ): List<MediaItem>
 
     /**
      * Cantidad total de elementos que cumplen [query] y aún no están en

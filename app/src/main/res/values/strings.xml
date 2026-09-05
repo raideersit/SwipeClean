@@ -58,15 +58,25 @@
     <string name="summary_empty_body">No marcaste ninguna foto para borrar en esta sesión.</string>
     <string name="summary_success_title">¡Listo!</string>
     <string name="summary_success_freed">Liberaste %1$s</string>
+    <string name="summary_success_trashed">Enviaste %1$s a la papelera</string>
+    <string name="summary_success_trash_note">El espacio se libera cuando el sistema vacíe la papelera.</string>
     <string name="summary_keep_cleaning">Seguir limpiando</string>
     <string name="summary_go_home">Volver al inicio</string>
     <plurals name="summary_will_free">
         <item quantity="one">Vas a liberar %1$s (%2$d foto)</item>
         <item quantity="other">Vas a liberar %1$s (%2$d fotos)</item>
     </plurals>
+    <plurals name="summary_will_trash">
+        <item quantity="one">Vas a mandar %1$s a la papelera (%2$d foto)</item>
+        <item quantity="other">Vas a mandar %1$s a la papelera (%2$d fotos)</item>
+    </plurals>
     <plurals name="summary_success_detail">
         <item quantity="one">Eliminaste %1$d foto</item>
         <item quantity="other">Eliminaste %1$d fotos</item>
+    </plurals>
+    <plurals name="summary_not_deleted">
+        <item quantity="one">No se pudo borrar %1$d foto.</item>
+        <item quantity="other">No se pudieron borrar %1$d fotos.</item>
     </plurals>
 
     <!-- Pantalla de ajustes -->
@@ -83,7 +93,9 @@
     <string name="settings_theme_dark">Oscuro</string>
     <string name="settings_theme_system">Según el sistema</string>
     <string name="settings_section_stats">Estadísticas</string>
-    <string name="settings_stat_freed">Espacio liberado</string>
+    <!-- El total suma papelera y borrado definitivo, así que no siempre es espacio
+         ya liberado en disco: el label evita prometerlo. -->
+    <string name="settings_stat_freed">Peso de las fotos eliminadas</string>
     <string name="settings_stat_deleted">Fotos eliminadas</string>
     <string name="settings_section_history">Historial</string>
     <string name="settings_reset_history">Restablecer historial de revisadas</string>

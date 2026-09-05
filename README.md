@@ -7,7 +7,7 @@ lote al final de cada sesión.
 ## Stack
 
 - Kotlin + Jetpack Compose (Material 3)
-- minSdk 26 / targetSdk 35
+- minSdk 30 (Android 11) / targetSdk 37
 - MVVM + Clean Architecture (`data` / `domain` / `ui`)
 - Hilt, Coroutines + Flow
 - Room (historial de fotos ya revisadas)
@@ -24,6 +24,12 @@ todas juntas con una sola llamada a `createTrashRequest()`.
 **Papelera antes que borrado permanente.** `createTrashRequest()` manda a la
 papelera del sistema (recuperable ~30 días). El borrado definitivo queda como
 opción en ajustes.
+
+Esa API no existe antes de Android 11, y sin ella el borrado sería siempre
+permanente: ahí se decidió el minSdk 30 en vez de mantener una segunda ruta
+destructiva bajo la misma UI. Como la papelera deja el archivo en disco hasta
+que el sistema la vacía, el resumen dice "enviaste X a la papelera" y reserva
+"liberaste X" para el borrado definitivo.
 
 **Historial de revisadas.** Room guarda cada `mediaId` decidido. Las fotos
 conservadas no vuelven a aparecer en sesiones futuras. Sin esto, la app

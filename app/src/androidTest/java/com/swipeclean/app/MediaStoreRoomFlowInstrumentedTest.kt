@@ -87,7 +87,7 @@ class MediaStoreRoomFlowInstrumentedTest {
 
         // 4. Repetir la primera página a través del repositorio: los tres marcados ya
         // no deben aparecer, porque la exclusión ocurre en la propia consulta SQL.
-        val firstPageAfterReview = repository.getMediaPage(query, offset = 0, limit = pageSize)
+        val firstPageAfterReview = repository.getMediaPage(query, limit = pageSize)
         val idsAfterReview = firstPageAfterReview.map { it.id }.toSet()
         toKeep.forEach { item ->
             assertTrue(

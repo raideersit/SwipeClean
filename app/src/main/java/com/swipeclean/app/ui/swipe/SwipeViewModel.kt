@@ -121,15 +121,21 @@ class SwipeViewModel @Inject constructor(
     }
 
     /**
-     * Trae la siguiente página. El offset se calcula como `buffer.size - cursor`
-     * porque los elementos ya decididos (índices `0 until cursor`) están en Room y
-     * la consulta los excluye: sin ese ajuste la paginación se saltaría fotos.
+     * Trae la siguiente página pidiendo siempre desde el principio y excluyendo lo
+     * que ya está en el buffer.
+     *
+     * No se usa offset a propósito. El offset anterior (`buffer.size - cursor`) daba
+     * por hecho que Room ya tenía registrada cada decisión recién tomada, pero
+     * `markReviewed` se lanza sin esperarlo: si el refill ganaba la carrera, la
+     * consulta no excluía esa foto, el offset quedaba corrido y se saltaban fotos
+     * sin que nada lo delatara. El buffer, en cambio, contiene siempre todo lo
+     * decidido en la sesión, así que la exclusión no depende del scheduling. De
+     * paso, tampoco se descuadra si borran fotos desde fuera a mitad de sesión.
      */
     private suspend fun fetchNextPage() {
-        val offset = (buffer.size - cursor).coerceAtLeast(0)
-        val page = repository.getMediaPage(query, offset, MediaQuery.PAGE_SIZE)
         val known = buffer.mapTo(HashSet(buffer.size)) { it.id }
-        buffer.addAll(page.filter { it.id !in known })
+        val page = repository.getMediaPage(query, MediaQuery.PAGE_SIZE, known)
+        buffer.addAll(page)
         if (page.size < MediaQuery.PAGE_SIZE) endReached = true
     }
 

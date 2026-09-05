@@ -1,13 +1,11 @@
 package com.swipeclean.app
 
 import android.app.Application
-import android.os.Build
 import android.util.Log
 import coil3.ImageLoader
 import coil3.PlatformContext
 import coil3.SingletonImageLoader
 import coil3.gif.AnimatedImageDecoder
-import coil3.gif.GifDecoder
 import com.swipeclean.app.domain.repository.MediaRepository
 import dagger.hilt.android.HiltAndroidApp
 import kotlinx.coroutines.CoroutineExceptionHandler
@@ -39,18 +37,12 @@ class SwipeCleanApp : Application(), SingletonImageLoader.Factory {
     }
 
     /**
-     * `ImageLoader` global con soporte de GIF animado: `ImageDecoder` en API 28+ y
-     * el decoder por software en API 26–27.
+     * `ImageLoader` global con soporte de GIF animado vía `ImageDecoder`, siempre
+     * disponible con `minSdk 30`.
      */
     override fun newImageLoader(context: PlatformContext): ImageLoader =
         ImageLoader.Builder(context)
-            .components {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                    add(AnimatedImageDecoder.Factory())
-                } else {
-                    add(GifDecoder.Factory())
-                }
-            }
+            .components { add(AnimatedImageDecoder.Factory()) }
             .build()
 
     private companion object {

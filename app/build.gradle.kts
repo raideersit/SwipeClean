@@ -23,7 +23,9 @@ android {
 
     defaultConfig {
         applicationId = "com.swipeclean.app"
-        minSdk = 26
+        // minSdk 30: `MediaStore.createTrashRequest` no existe antes de API 30 y sin
+        // él el borrado es siempre permanente, que contradice la promesa de la app.
+        minSdk = 30
         targetSdk = 37
         versionCode = 1
         versionName = "1.0"

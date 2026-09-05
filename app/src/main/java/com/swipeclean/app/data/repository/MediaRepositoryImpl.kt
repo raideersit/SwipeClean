@@ -57,11 +57,18 @@ class MediaRepositoryImpl @Inject constructor(
         if (mediaIds.isNotEmpty()) reviewedMediaDao.deleteByIds(mediaIds)
     }
 
-    override suspend fun getMediaPage(query: MediaQuery, offset: Int, limit: Int): List<MediaItem> {
+    override suspend fun getMediaPage(
+        query: MediaQuery,
+        limit: Int,
+        excludeIds: Collection<Long>,
+    ): List<MediaItem> {
         // El filtrado de revisados ocurre en la consulta a MediaStore (cláusula
         // `_ID NOT IN (...)`), no recorriendo la página en memoria.
         val reviewedIds = reviewedMediaDao.getAllReviewedIds()
-        return mediaStore.getPage(query, offset, limit, reviewedIds)
+        // Lo ya decidido en la sesión aparece en ambas listas: se deduplica para no
+        // inflar el `NOT IN` con el mismo id dos veces.
+        val excluded = if (excludeIds.isEmpty()) reviewedIds else (reviewedIds + excludeIds).toHashSet()
+        return mediaStore.getPage(query, offset = 0, limit = limit, excludedIds = excluded)
     }
 
     override suspend fun countMedia(query: MediaQuery): Int {

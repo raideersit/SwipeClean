@@ -7,7 +7,7 @@ final de cada sesión.
 ## Stack
 
 - Kotlin, Jetpack Compose (Material 3), sin XML de layouts
-- minSdk 26 / targetSdk 35 / compileSdk 35
+- minSdk 30 / targetSdk 37 / compileSdk 37
 - MVVM + Clean Architecture: `data/` · `domain/` · `ui/`
 - Hilt, Coroutines + Flow, Room (KSP), Coil 3, MediaStore API
 - Package base: `com.swipeclean.app`
@@ -25,15 +25,23 @@ final de cada sesión.
 
 ## Restricciones críticas
 
-**Borrado.** En API 30+ se usa `MediaStore.createTrashRequest()` con TODAS las
-Uris en una sola llamada, lanzado con `StartIntentSenderForResult`. Nunca borrar
-foto por foto: el sistema muestra un diálogo por cada llamada.
+**Borrado.** Se usa `MediaStore.createTrashRequest()` con TODAS las Uris en una
+sola llamada, lanzado con `StartIntentSenderForResult`. Nunca borrar foto por
+foto: el sistema muestra un diálogo por cada llamada.
 
 Por defecto va a la papelera del sistema (`createTrashRequest`), no borrado
 permanente. `createDeleteRequest()` solo si el usuario lo activa en ajustes.
 
+El minSdk es 30 justamente por esto: `createTrashRequest` no existe antes de API
+30, y sin él el borrado es siempre permanente, lo que contradice la promesa de la
+app. No bajar el minSdk sin resolver eso primero.
+
+La papelera NO libera espacio: el archivo queda en disco con `IS_TRASHED = 1`
+hasta que el sistema la vacíe (~30 días). Solo el borrado definitivo libera
+bytes, y la UI tiene que distinguir los dos casos.
+
 Si el usuario cancela el diálogo del sistema: no se marca nada como eliminado
-ni se suma al contador de espacio liberado.
+ni se suma al contador.
 
 **Historial.** La tabla `reviewed_media` guarda cada `mediaId` ya decidido. El
 filtrado de esos IDs se hace en la consulta SQL, nunca en memoria. Sin esto la

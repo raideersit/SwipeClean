@@ -16,8 +16,8 @@ import android.net.Uri
  * 3. Si es [DeletionRequest.Completed], no hubo diálogo del sistema y el resultado
  *    ya está: equivale a un [DeletionResult.Confirmed].
  *
- * Regla crítica: en API 30+ es UNA sola llamada con toda la lista, un único
- * diálogo del sistema. Nunca foto por foto.
+ * Regla crítica: UNA sola llamada con toda la lista, un único diálogo del
+ * sistema. Nunca foto por foto.
  */
 interface MediaDeleter {
 
@@ -46,8 +46,8 @@ sealed interface DeletionRequest {
     ) : DeletionRequest
 
     /**
-     * El borrado ya se ejecutó sin diálogo (ruta directa de API 29 y menos, o no
-     * quedaba ninguna Uri válida). [deletedUris] puede venir vacía.
+     * No hubo diálogo porque no quedaba ninguna Uri válida que borrar (todas se
+     * habían borrado ya desde fuera de la app). [deletedUris] puede venir vacía.
      */
     data class Completed(val deletedUris: List<Uri>) : DeletionRequest
 }

@@ -6,7 +6,6 @@ import android.content.Context
 import android.database.ContentObserver
 import android.database.Cursor
 import android.net.Uri
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -237,9 +236,8 @@ class MediaStoreDataSource @Inject constructor(
     }
 
     /**
-     * Ejecuta la consulta paginada encapsulando la diferencia de API:
-     * - API 30+: `Bundle` de query args con `QUERY_ARG_LIMIT` / `QUERY_ARG_OFFSET`.
-     * - API 26-29: `LIMIT`/`OFFSET` embebidos en el `sortOrder`.
+     * Ejecuta la consulta paginada con el `Bundle` de query args de API 30+
+     * (`QUERY_ARG_LIMIT` / `QUERY_ARG_OFFSET`).
      *
      * Con [limit] nulo se devuelve el conjunto completo (sin paginar).
      */
@@ -255,30 +253,20 @@ class MediaStoreDataSource @Inject constructor(
             MediaSortOrder.SIZE_DESC -> MediaStore.Files.FileColumns.SIZE
         }
 
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            val args = Bundle().apply {
-                putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
-                putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs)
-                putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(sortColumn))
-                putInt(
-                    ContentResolver.QUERY_ARG_SORT_DIRECTION,
-                    ContentResolver.QUERY_SORT_DIRECTION_DESCENDING,
-                )
-                if (limit != null) {
-                    putInt(ContentResolver.QUERY_ARG_LIMIT, limit)
-                    putInt(ContentResolver.QUERY_ARG_OFFSET, offset)
-                }
+        val args = Bundle().apply {
+            putString(ContentResolver.QUERY_ARG_SQL_SELECTION, selection)
+            putStringArray(ContentResolver.QUERY_ARG_SQL_SELECTION_ARGS, selectionArgs)
+            putStringArray(ContentResolver.QUERY_ARG_SORT_COLUMNS, arrayOf(sortColumn))
+            putInt(
+                ContentResolver.QUERY_ARG_SORT_DIRECTION,
+                ContentResolver.QUERY_SORT_DIRECTION_DESCENDING,
+            )
+            if (limit != null) {
+                putInt(ContentResolver.QUERY_ARG_LIMIT, limit)
+                putInt(ContentResolver.QUERY_ARG_OFFSET, offset)
             }
-            resolver.query(collectionUri, projection, args, null)
-        } else {
-            val sortOrder = buildString {
-                append(sortColumn).append(" DESC")
-                if (limit != null) {
-                    append(" LIMIT ").append(limit).append(" OFFSET ").append(offset)
-                }
-            }
-            resolver.query(collectionUri, projection, selection, selectionArgs, sortOrder)
         }
+        return resolver.query(collectionUri, projection, args, null)
     }
 
     /** Construye el `WHERE` y sus argumentos a partir de los filtros de [query]. */
@@ -309,13 +297,7 @@ class MediaStoreDataSource @Inject constructor(
         }
 
         if (query.screenshotsOnly) {
-            // RELATIVE_PATH no existe antes de API 29: se cae a filtrar por el
-            // nombre de carpeta, que es como se identificaban capturas antes de Q.
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                clauses += "${MediaStore.Files.FileColumns.RELATIVE_PATH} LIKE ?"
-            } else {
-                clauses += "${MediaStore.Files.FileColumns.BUCKET_DISPLAY_NAME} LIKE ?"
-            }
+            clauses += "${MediaStore.Files.FileColumns.RELATIVE_PATH} LIKE ?"
             args += "%Screenshot%"
         }
 

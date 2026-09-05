@@ -83,6 +83,14 @@ fun SummaryScreen(
                 is SummaryEvent.LaunchDeletion -> deletionLauncher.launch(event.request)
                 is SummaryEvent.ShowMessage ->
                     snackbarHostState.showSnackbar(context.getString(event.messageRes))
+
+                is SummaryEvent.ShowNotDeleted -> snackbarHostState.showSnackbar(
+                    context.resources.getQuantityString(
+                        R.plurals.summary_not_deleted,
+                        event.count,
+                        event.count,
+                    ),
+                )
             }
         }
     }
@@ -200,7 +208,9 @@ private fun GridContent(
         ) {
             Text(
                 text = pluralStringResource(
-                    R.plurals.summary_will_free,
+                    // Solo el borrado definitivo libera espacio: con la papelera el
+                    // archivo se queda en disco hasta que el sistema la vacíe.
+                    if (state.permanent) R.plurals.summary_will_free else R.plurals.summary_will_trash,
                     state.items.size,
                     formatBytes(state.totalBytes),
                     state.items.size,
@@ -301,20 +311,32 @@ private fun SuccessContent(
             textAlign = TextAlign.Center,
         )
         Text(
-            text = stringResource(R.string.summary_success_freed, formatBytes(state.freedBytes)),
+            text = stringResource(
+                if (state.permanent) R.string.summary_success_freed else R.string.summary_success_trashed,
+                formatBytes(state.deletedBytes),
+            ),
             style = MaterialTheme.typography.titleLarge,
             textAlign = TextAlign.Center,
         )
         Text(
             text = pluralStringResource(
                 R.plurals.summary_success_detail,
-                state.freedCount,
-                state.freedCount,
+                state.deletedCount,
+                state.deletedCount,
             ),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             textAlign = TextAlign.Center,
         )
+        if (!state.permanent) {
+            // Aclara que los bytes siguen ocupados: la papelera no libera espacio.
+            Text(
+                text = stringResource(R.string.summary_success_trash_note),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Button(onClick = onFinish, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.summary_keep_cleaning))
@@ -354,12 +376,34 @@ private fun SummaryContentPreview() {
     }
 }
 
-@Preview(showBackground = true, name = "Éxito")
+@Preview(showBackground = true, name = "Éxito (papelera)")
 @Composable
 private fun SummarySuccessPreview() {
     SwipeCleanTheme {
         SummaryScreenContent(
-            state = SummaryUiState.Success(freedBytes = 512L * 1024 * 1024, freedCount = 23),
+            state = SummaryUiState.Success(
+                deletedBytes = 512L * 1024 * 1024,
+                deletedCount = 23,
+                permanent = false,
+            ),
+            snackbarHostState = remember { SnackbarHostState() },
+            onFinish = {},
+            onKeepInstead = {},
+            onDelete = {},
+        )
+    }
+}
+
+@Preview(showBackground = true, name = "Éxito (definitivo)")
+@Composable
+private fun SummarySuccessPermanentPreview() {
+    SwipeCleanTheme {
+        SummaryScreenContent(
+            state = SummaryUiState.Success(
+                deletedBytes = 512L * 1024 * 1024,
+                deletedCount = 23,
+                permanent = true,
+            ),
             snackbarHostState = remember { SnackbarHostState() },
             onFinish = {},
             onKeepInstead = {},
