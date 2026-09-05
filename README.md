@@ -10,7 +10,9 @@ lote al final de cada sesión.
 - minSdk 30 (Android 11) / targetSdk 37
 - MVVM + Clean Architecture (`data` / `domain` / `ui`)
 - Hilt, Coroutines + Flow
+- Navigation Compose (rutas type-safe)
 - Room (historial de fotos ya revisadas)
+- DataStore Preferences (ajustes: tema, switches)
 - Coil 3
 - MediaStore API
 
@@ -49,6 +51,7 @@ Los prompts están en `docs/prompts/`, en orden de ejecución:
 | 05 | `05-pantalla-home.md` | Navegación y pantalla principal |
 | 06 | `06-pantalla-swipe.md` | Gesto de deslizamiento |
 | 07 | `07-resumen-ajustes-y-cierre.md` | Confirmación, ajustes, casos borde |
+| 08 | `08-correcciones.md` | Correcciones de robustez tras revisión (P0–P3) |
 
 Ejecutar una etapa a la vez, verificando que compile antes de seguir.
 Entre la 04 y la 05 conviene probar el borrado real en un emulador.

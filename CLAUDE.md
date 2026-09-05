@@ -9,7 +9,8 @@ final de cada sesión.
 - Kotlin, Jetpack Compose (Material 3), sin XML de layouts
 - minSdk 30 / targetSdk 37 / compileSdk 37
 - MVVM + Clean Architecture: `data/` · `domain/` · `ui/`
-- Hilt, Coroutines + Flow, Room (KSP), Coil 3, MediaStore API
+- Hilt, Coroutines + Flow, Room (KSP), DataStore Preferences, Navigation Compose
+  (rutas type-safe), Coil 3, MediaStore API
 - Package base: `com.swipeclean.app`
 
 ## Reglas del proyecto
@@ -60,9 +61,9 @@ Dónde se aplica el filtro:
 Lo que nunca se hace: filtrar una página ya traída de MediaStore. Eso reintroduce
 el bug de mostrar siempre las mismas fotos ya descartadas.
 
-**Permisos.** API 33+ `READ_MEDIA_IMAGES`; API 32 y menos
-`READ_EXTERNAL_STORAGE`; API 34+ además manejar acceso parcial
-(`READ_MEDIA_VISUAL_USER_SELECTED`) como estado propio de la UI.
+**Permisos.** API 33+ `READ_MEDIA_IMAGES`; API 30–32 `READ_EXTERNAL_STORAGE`
+(con `maxSdkVersion="32"` en el manifiesto); API 34+ además manejar acceso
+parcial (`READ_MEDIA_VISUAL_USER_SELECTED`) como estado propio de la UI.
 
 ## Plan de trabajo
 
@@ -73,6 +74,7 @@ Una etapa a la vez. No adelantarse a la siguiente sin que la actual compile.
 
 ```bash
 ./gradlew assembleDebug      # compilar
+./gradlew testDebugUnitTest  # tests unitarios JVM
 ./gradlew installDebug       # instalar en dispositivo/emulador conectado
 ./gradlew lint               # análisis estático
 ```
@@ -84,6 +86,7 @@ Una etapa a la vez. No adelantarse a la siguiente sin que la actual compile.
   usar la versión vigente y decirlo.
 - No tocar `local.properties` ni el Gradle wrapper.
 - No agregar dependencias nuevas sin justificarlo antes.
+
 ## Protocolo de inicio de etapa
 
 Antes de escribir o modificar cualquier archivo de una etapa, detente y haz
@@ -112,6 +115,7 @@ No escribas ni un archivo hasta recibir confirmación explícita del usuario.
 | 5 — Pantalla Home | sonnet | high |
 | 6 — Pantalla Swipe | opusplan | high |
 | 7 — Resumen, ajustes y cierre | sonnet | high |
+| 8 — Correcciones de robustez | sonnet, salvo P1 (opus/xhigh) | high |
 
 El usuario cambia esto con `/model <alias>` y `/effort <nivel>`. Tú no puedes
 cambiarlo: solo avisar cuando no calce.

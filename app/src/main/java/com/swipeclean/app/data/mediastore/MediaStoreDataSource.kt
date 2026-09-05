@@ -143,8 +143,8 @@ class MediaStoreDataSource @Inject constructor(
 
     /**
      * Agrupa los elementos que cumplen [query] (excluyendo [excludedIds]) por álbum
-     * y devuelve la lista de [MediaBucket] con conteo, peso total y portada
-     * (elemento más reciente).
+     * y devuelve la lista de [MediaBucket] con conteo, peso total y portada (el
+     * elemento de alta más reciente del álbum).
      *
      * A diferencia de [getPage], aquí [excludedIds] se filtra en memoria mientras se
      * recorre el cursor: este método ya visita todas las filas para agregar, así que
@@ -163,12 +163,18 @@ class MediaStoreDataSource @Inject constructor(
                 while (cursor.moveToNext()) {
                     val item = cursor.toMediaItem(cols)
                     if (item.id in excluded) continue
-                    // El primer elemento de cada bucket es el más reciente (orden DATE_ADDED DESC).
                     val acc = porBucket.getOrPut(item.bucketId) {
-                        MutableBucket(item.bucketId, item.bucketName, item.uri)
+                        MutableBucket(item.bucketId, item.bucketName)
                     }
                     acc.cantidad++
                     acc.pesoTotalBytes += item.sizeBytes
+                    // La portada es el elemento más reciente del álbum. Se elige por
+                    // fecha y no por el primer elemento del cursor, porque el orden
+                    // depende de query.sortOrder (con SIZE_DESC sería el más pesado).
+                    if (item.dateAddedMillis > acc.coverDateMillis) {
+                        acc.coverDateMillis = item.dateAddedMillis
+                        acc.coverUri = item.uri
+                    }
                 }
             }
             porBucket.values.map {
@@ -322,8 +328,13 @@ class MediaStoreDataSource @Inject constructor(
         }
 
         if (query.screenshotsOnly) {
-            clauses += "${MediaStore.Files.FileColumns.RELATIVE_PATH} LIKE ?"
+            // La carpeta suele llamarse "Screenshots", pero algunos equipos la
+            // localizan ("Capturas de pantalla", "Capturas"). Se cubren ambos; LIKE
+            // es case-insensitive en ASCII, así que "%screenshot%" basta para esa.
+            val path = MediaStore.Files.FileColumns.RELATIVE_PATH
+            clauses += "($path LIKE ? OR $path LIKE ?)"
             args += "%Screenshot%"
+            args += "%Captura%"
         }
 
         query.bucketId?.let {
@@ -397,10 +408,11 @@ class MediaStoreDataSource @Inject constructor(
     private class MutableBucket(
         val id: Long,
         val nombre: String,
-        val coverUri: Uri?,
     ) {
         var cantidad: Int = 0
         var pesoTotalBytes: Long = 0L
+        var coverUri: Uri? = null
+        var coverDateMillis: Long = Long.MIN_VALUE
     }
 
     /** Acumulador mutable para agregar un mes mientras se recorre el cursor. */

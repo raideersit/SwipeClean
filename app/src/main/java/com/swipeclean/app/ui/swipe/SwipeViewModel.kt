@@ -20,13 +20,12 @@ import kotlinx.coroutines.launch
 /**
  * Estado y lógica de la pantalla de swipe.
  *
- * Carga por páginas ([MediaQuery.PAGE_SIZE]) sobre un buffer que no se vacía: al
- * revisar solo avanza [cursor], así deshacer es inmediato. Cada decisión se
- * persiste en Room al momento vía [MediaRepository.markReviewed] ([ReviewDecision.KEPT]
- * queda firme; [ReviewDecision.DELETED] es provisional hasta el resumen).
- *
- * Los contadores de la sesión sobreviven a muerte de proceso en [SavedStateHandle];
- * el stack de deshacer vive en memoria (basta para rotación).
+ * La aritmética de páginas, cursor y refill vive en [SwipeBuffer] (probada aparte).
+ * Aquí quedan la orquestación, los contadores de sesión —que sobreviven a muerte
+ * de proceso en [SavedStateHandle]— y el stack de deshacer, en memoria (basta para
+ * rotación). Cada decisión se persiste en Room al momento vía
+ * [MediaRepository.markReviewed] ([ReviewDecision.KEPT] queda firme;
+ * [ReviewDecision.DELETED] es provisional hasta el resumen).
  */
 @HiltViewModel
 class SwipeViewModel @Inject constructor(
@@ -37,10 +36,13 @@ class SwipeViewModel @Inject constructor(
     private val args: Swipe = savedStateHandle.toRoute<Swipe>()
     private val query: MediaQuery = args.toMediaQuery()
 
-    private val buffer = mutableListOf<MediaItem>()
-    private var cursor = 0
-    private var endReached = false
-    private var refilling = false
+    private val buffer = SwipeBuffer<MediaItem>(
+        pageSize = MediaQuery.PAGE_SIZE,
+        idOf = MediaItem::id,
+    ) { limit, exclude ->
+        repository.getMediaPage(query, limit, exclude)
+    }
+
     private var loadingInitial = true
     private var total = 0
 
@@ -59,7 +61,7 @@ class SwipeViewModel @Inject constructor(
         viewModelScope.launch {
             total = savedStateHandle.get<Int>(KEY_TOTAL)
                 ?: repository.countMedia(query).also { savedStateHandle[KEY_TOTAL] = it }
-            fillInitial()
+            buffer.loadInitial()
             loadingInitial = false
             emitState()
         }
@@ -67,7 +69,7 @@ class SwipeViewModel @Inject constructor(
 
     /** Deslizar (o botón): izquierda marca para eliminar, derecha conserva. */
     fun onDecision(direction: SwipeDirection) {
-        val item = buffer.getOrNull(cursor) ?: return
+        val item = buffer.current() ?: return
         val decision =
             if (direction == SwipeDirection.LEFT) ReviewDecision.DELETED else ReviewDecision.KEPT
 
@@ -80,10 +82,12 @@ class SwipeViewModel @Inject constructor(
             markedCount++
             markedBytes += item.sizeBytes
         }
-        cursor++
+        buffer.advance()
         reviewedThisSession++
         persistCounters()
-        maybeRefill()
+        if (buffer.needsRefill) {
+            viewModelScope.launch { if (buffer.refillIfNeeded()) emitState() }
+        }
         emitState()
     }
 
@@ -97,59 +101,20 @@ class SwipeViewModel @Inject constructor(
             markedCount--
             markedBytes -= entry.item.sizeBytes
         }
-        cursor--
+        buffer.retreat()
         reviewedThisSession--
         persistCounters()
         emitState()
     }
 
-    private suspend fun fillInitial() {
-        while (!endReached && buffer.size - cursor <= PAGE_REFILL_THRESHOLD + STACK_AHEAD) {
-            fetchNextPage()
-        }
-    }
-
-    private fun maybeRefill() {
-        if (endReached || refilling) return
-        if (buffer.size - cursor > PAGE_REFILL_THRESHOLD) return
-        refilling = true
-        viewModelScope.launch {
-            fetchNextPage()
-            refilling = false
-            emitState()
-        }
-    }
-
-    /**
-     * Trae la siguiente página pidiendo siempre desde el principio y excluyendo lo
-     * que ya está en el buffer.
-     *
-     * No se usa offset a propósito. El offset anterior (`buffer.size - cursor`) daba
-     * por hecho que Room ya tenía registrada cada decisión recién tomada, pero
-     * `markReviewed` se lanza sin esperarlo: si el refill ganaba la carrera, la
-     * consulta no excluía esa foto, el offset quedaba corrido y se saltaban fotos
-     * sin que nada lo delatara. El buffer, en cambio, contiene siempre todo lo
-     * decidido en la sesión, así que la exclusión no depende del scheduling. De
-     * paso, tampoco se descuadra si borran fotos desde fuera a mitad de sesión.
-     */
-    private suspend fun fetchNextPage() {
-        val known = buffer.mapTo(HashSet(buffer.size)) { it.id }
-        val page = repository.getMediaPage(query, MediaQuery.PAGE_SIZE, known)
-        buffer.addAll(page)
-        if (page.size < MediaQuery.PAGE_SIZE) endReached = true
-    }
-
     private fun emitState() {
-        val top = buffer.getOrNull(cursor)
-        val nextFrom = (cursor + 1).coerceAtMost(buffer.size)
-        val stackTo = (cursor + 1 + STACK_AHEAD).coerceAtMost(buffer.size)
-        val preloadTo = (cursor + 1 + PRELOAD_AHEAD).coerceAtMost(buffer.size)
-        val finished = top == null && endReached && !loadingInitial
+        val top = buffer.current()
+        val finished = top == null && buffer.endReached && !loadingInitial
         _uiState.value = SwipeUiState(
-            loading = loadingInitial || (top == null && !endReached && !finished),
+            loading = loadingInitial || (top == null && !buffer.endReached && !finished),
             topCard = top,
-            nextCards = buffer.subList(nextFrom, stackTo).toList(),
-            upcoming = buffer.subList(nextFrom, preloadTo).toList(),
+            nextCards = buffer.ahead(SwipeBuffer.STACK_AHEAD),
+            upcoming = buffer.ahead(SwipeBuffer.PRELOAD_AHEAD),
             currentIndex = (reviewedThisSession + 1).coerceAtMost(total.coerceAtLeast(1)),
             total = total,
             markedForDeleteCount = markedCount,
@@ -177,9 +142,6 @@ class SwipeViewModel @Inject constructor(
     )
 
     private companion object {
-        const val PAGE_REFILL_THRESHOLD = 20
-        const val STACK_AHEAD = 2
-        const val PRELOAD_AHEAD = 3
         const val UNDO_LIMIT = 10
 
         const val KEY_REVIEWED = "swipe_reviewed"
