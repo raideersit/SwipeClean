@@ -18,9 +18,12 @@ import com.swipeclean.app.domain.model.MediaSortOrder
 import com.swipeclean.app.domain.model.MediaTypeFilter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.YearMonth
@@ -142,17 +145,24 @@ class MediaStoreDataSource @Inject constructor(
      * Agrupa los elementos que cumplen [query] (excluyendo [excludedIds]) por álbum
      * y devuelve la lista de [MediaBucket] con conteo, peso total y portada
      * (elemento más reciente).
+     *
+     * A diferencia de [getPage], aquí [excludedIds] se filtra en memoria mientras se
+     * recorre el cursor: este método ya visita todas las filas para agregar, así que
+     * el chequeo `in` sale gratis y evita mandar un `_ID NOT IN (...)` de decenas de
+     * KB por Binder en cada refresco de la Home.
      */
     suspend fun getBuckets(
         query: MediaQuery,
         excludedIds: Collection<Long> = emptyList(),
     ): List<MediaBucket> =
         withContext(Dispatchers.IO) {
+            val excluded = excludedIds.toHashSet()
             val porBucket = LinkedHashMap<Long, MutableBucket>()
-            queryMedia(query, limit = null, offset = 0, excludedIds = excludedIds)?.use { cursor ->
+            queryMedia(query, limit = null, offset = 0, excludedIds = emptyList())?.use { cursor ->
                 val cols = Columns(cursor)
                 while (cursor.moveToNext()) {
                     val item = cursor.toMediaItem(cols)
+                    if (item.id in excluded) continue
                     // El primer elemento de cada bucket es el más reciente (orden DATE_ADDED DESC).
                     val acc = porBucket.getOrPut(item.bucketId) {
                         MutableBucket(item.bucketId, item.bucketName, item.uri)
@@ -175,17 +185,22 @@ class MediaStoreDataSource @Inject constructor(
     /**
      * Agrupa los elementos que cumplen [query] (excluyendo [excludedIds]) por mes
      * calendario de alta, para la sección "Por fecha" de la Home.
+     *
+     * [excludedIds] se filtra en memoria durante el recorrido, igual que en
+     * [getBuckets] y por el mismo motivo.
      */
     suspend fun getMonthGroups(
         query: MediaQuery,
         excludedIds: Collection<Long> = emptyList(),
     ): List<MediaMonthGroup> =
         withContext(Dispatchers.IO) {
+            val excluded = excludedIds.toHashSet()
             val porMes = LinkedHashMap<YearMonth, MutableMonthGroup>()
-            queryMedia(query, limit = null, offset = 0, excludedIds = excludedIds)?.use { cursor ->
+            queryMedia(query, limit = null, offset = 0, excludedIds = emptyList())?.use { cursor ->
                 val cols = Columns(cursor)
                 while (cursor.moveToNext()) {
                     val item = cursor.toMediaItem(cols)
+                    if (item.id in excluded) continue
                     val yearMonth = yearMonthOf(item.dateAddedMillis)
                     // El cursor viene ordenado DESC, así que el orden de inserción en
                     // el mapa ya queda del mes más reciente al más antiguo.
@@ -215,7 +230,15 @@ class MediaStoreDataSource @Inject constructor(
      * Emite [Unit] cada vez que cambia el contenido de imágenes o videos del
      * volumen externo. El prompt de la etapa pide observar imágenes; se añade
      * también video porque la app maneja ambos tipos.
+     *
+     * El canal del `callbackFlow` es de capacidad 0 y [ContentObserver.onChange]
+     * usa [kotlinx.coroutines.channels.SendChannel.trySend], que descarta la
+     * emisión si nadie está recibiendo justo en ese instante. Aquí ese descarte es
+     * intencional: solo importa "hubo un cambio", no cuántos. [conflate] lo hace
+     * explícito y [debounce] agrupa la ráfaga de `onChange` que dispara un borrado
+     * en lote en un único reescaneo de la Home.
      */
+    @OptIn(FlowPreview::class)
     fun observeMediaChanges(): Flow<Unit> = callbackFlow {
         val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
             override fun onChange(selfChange: Boolean) {
@@ -234,6 +257,8 @@ class MediaStoreDataSource @Inject constructor(
         )
         awaitClose { resolver.unregisterContentObserver(observer) }
     }
+        .conflate()
+        .debounce(MEDIA_CHANGE_DEBOUNCE_MS)
 
     /**
      * Ejecuta la consulta paginada con el `Bundle` de query args de API 30+
@@ -382,5 +407,10 @@ class MediaStoreDataSource @Inject constructor(
     private class MutableMonthGroup(val yearMonth: YearMonth) {
         var cantidad: Int = 0
         var pesoTotalBytes: Long = 0L
+    }
+
+    private companion object {
+        // Ventana para agrupar la ráfaga de onChange de un borrado en lote.
+        const val MEDIA_CHANGE_DEBOUNCE_MS = 300L
     }
 }

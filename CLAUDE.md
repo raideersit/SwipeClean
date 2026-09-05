@@ -44,8 +44,21 @@ Si el usuario cancela el diálogo del sistema: no se marca nada como eliminado
 ni se suma al contador.
 
 **Historial.** La tabla `reviewed_media` guarda cada `mediaId` ya decidido. El
-filtrado de esos IDs se hace en la consulta SQL, nunca en memoria. Sin esto la
-app vuelve a mostrar siempre las mismas fotos ya descartadas.
+conjunto se cachea en memoria en `MediaRepositoryImpl` (`@Singleton`) y se
+invalida en cada escritura; así no se relee la tabla entera en cada consulta.
+
+Dónde se aplica el filtro:
+
+- **Swipe** (`getMediaPage`, `countMedia`): en la consulta a MediaStore
+  (`_ID NOT IN (...)`). Ahí el filtrado server-side importa: sin él la paginación
+  trae páginas cortas o repite fotos.
+- **Home** (`getBuckets`, `getMonthGroups`): en memoria, contra el conjunto
+  cacheado, mientras se recorre el cursor. Estos métodos ya hacen un full-scan
+  para agregar por álbum/mes, así que el chequeo sale gratis y se ahorra mandar
+  un `NOT IN` de decenas de KB por Binder en cada refresco.
+
+Lo que nunca se hace: filtrar una página ya traída de MediaStore. Eso reintroduce
+el bug de mostrar siempre las mismas fotos ya descartadas.
 
 **Permisos.** API 33+ `READ_MEDIA_IMAGES`; API 32 y menos
 `READ_EXTERNAL_STORAGE`; API 34+ además manejar acceso parcial

@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -26,16 +28,45 @@ class MediaRepositoryImpl @Inject constructor(
     private val sessionStatsDao: SessionStatsDao,
 ) : MediaRepository {
 
+    // Conjunto de `mediaId` ya revisados, cacheado en memoria: antes se releía la
+    // tabla entera de Room en cada página de swipe y en cada tick del observer de
+    // la Home. Se invalida en cada escritura sobre `reviewed_media`.
+    //
+    // `reviewedGen` protege la carrera invalidar-vs-reconstruir: si una escritura
+    // invalida mientras un `getAllReviewedIds()` ya estaba en vuelo, ese resultado
+    // llega sin la escritura y no debe cachearse.
+    private val reviewedIdsMutex = Mutex()
+    @Volatile
+    private var reviewedIdsCache: Set<Long>? = null
+    @Volatile
+    private var reviewedGen = 0
+
+    private suspend fun reviewedIds(): Set<Long> {
+        reviewedIdsCache?.let { return it }
+        return reviewedIdsMutex.withLock {
+            reviewedIdsCache?.let { return@withLock it }
+            val genAtStart = reviewedGen
+            val fresh = reviewedMediaDao.getAllReviewedIds().toHashSet()
+            if (reviewedGen == genAtStart) reviewedIdsCache = fresh
+            fresh
+        }
+    }
+
+    private fun invalidateReviewedIds() {
+        reviewedGen++
+        reviewedIdsCache = null
+    }
+
     override fun getBuckets(query: MediaQuery): Flow<List<MediaBucket>> =
         mediaStore.observeMediaChanges()
             .onStart { emit(Unit) }
-            .map { mediaStore.getBuckets(query, reviewedMediaDao.getAllReviewedIds()) }
+            .map { mediaStore.getBuckets(query, reviewedIds()) }
             .flowOn(Dispatchers.IO)
 
     override fun getMonthGroups(query: MediaQuery): Flow<List<MediaMonthGroup>> =
         mediaStore.observeMediaChanges()
             .onStart { emit(Unit) }
-            .map { mediaStore.getMonthGroups(query, reviewedMediaDao.getAllReviewedIds()) }
+            .map { mediaStore.getMonthGroups(query, reviewedIds()) }
             .flowOn(Dispatchers.IO)
 
     override fun observeMarkedForDeletion(): Flow<List<MediaItem>> =
@@ -54,7 +85,10 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun forgetReviewed(mediaIds: List<Long>) {
-        if (mediaIds.isNotEmpty()) reviewedMediaDao.deleteByIds(mediaIds)
+        if (mediaIds.isNotEmpty()) {
+            reviewedMediaDao.deleteByIds(mediaIds)
+            invalidateReviewedIds()
+        }
     }
 
     override suspend fun getMediaPage(
@@ -64,17 +98,15 @@ class MediaRepositoryImpl @Inject constructor(
     ): List<MediaItem> {
         // El filtrado de revisados ocurre en la consulta a MediaStore (cláusula
         // `_ID NOT IN (...)`), no recorriendo la página en memoria.
-        val reviewedIds = reviewedMediaDao.getAllReviewedIds()
+        val reviewedIds = reviewedIds()
         // Lo ya decidido en la sesión aparece en ambas listas: se deduplica para no
         // inflar el `NOT IN` con el mismo id dos veces.
         val excluded = if (excludeIds.isEmpty()) reviewedIds else (reviewedIds + excludeIds).toHashSet()
         return mediaStore.getPage(query, offset = 0, limit = limit, excludedIds = excluded)
     }
 
-    override suspend fun countMedia(query: MediaQuery): Int {
-        val reviewedIds = reviewedMediaDao.getAllReviewedIds()
-        return mediaStore.countMedia(query, reviewedIds)
-    }
+    override suspend fun countMedia(query: MediaQuery): Int =
+        mediaStore.countMedia(query, reviewedIds())
 
     override suspend fun markReviewed(mediaId: Long, decision: ReviewDecision, sizeBytes: Long) {
         reviewedMediaDao.upsert(
@@ -85,10 +117,12 @@ class MediaRepositoryImpl @Inject constructor(
                 sizeBytes = sizeBytes,
             ),
         )
+        invalidateReviewedIds()
     }
 
     override suspend fun undoLastReview(mediaId: Long) {
         reviewedMediaDao.deleteById(mediaId)
+        invalidateReviewedIds()
     }
 
     override suspend fun recordSession(fotos: Int, bytes: Long) {
@@ -108,6 +142,7 @@ class MediaRepositoryImpl @Inject constructor(
     override suspend fun clearHistory() {
         reviewedMediaDao.clearAll()
         sessionStatsDao.clearAll()
+        invalidateReviewedIds()
     }
 
     override suspend fun pruneOrphanReviews() {
@@ -130,6 +165,7 @@ class MediaRepositoryImpl @Inject constructor(
 
         // El borrado se trocea para no volver a chocar con el tope de variables.
         orphans.chunked(ORPHAN_DELETE_CHUNK).forEach { reviewedMediaDao.deleteByIds(it) }
+        invalidateReviewedIds()
     }
 
     private companion object {
