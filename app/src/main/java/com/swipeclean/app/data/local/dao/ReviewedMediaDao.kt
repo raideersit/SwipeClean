@@ -37,11 +37,4 @@ interface ReviewedMediaDao {
     /** Reset total del historial (ajustes). */
     @Query("DELETE FROM reviewed_media")
     suspend fun clearAll()
-
-    /**
-     * Elimina los registros cuyo `mediaId` no está en [existingMediaIds] (los que
-     * siguen existiendo en MediaStore). Limpieza de huérfanos al iniciar la app.
-     */
-    @Query("DELETE FROM reviewed_media WHERE mediaId NOT IN (:existingMediaIds)")
-    suspend fun deleteOrphans(existingMediaIds: List<Long>)
 }

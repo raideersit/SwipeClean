@@ -104,10 +104,29 @@ class MediaRepositoryImpl @Inject constructor(
     }
 
     override suspend fun pruneOrphanReviews() {
+        val reviewedIds = reviewedMediaDao.getAllReviewedIds()
+        if (reviewedIds.isEmpty()) return
+
         val existingIds = mediaStore.getAllMediaIds()
         // Sin permiso de medios o galería vacía la lista llega vacía: no se toca el
         // historial para no borrarlo entero por un estado transitorio.
         if (existingIds.isEmpty()) return
-        reviewedMediaDao.deleteOrphans(existingIds)
+
+        // Se invierte la comparación: se recorre el historial (acotado por las
+        // decisiones del usuario) contra el conjunto de IDs vivos, en vez de mandar
+        // todos los IDs de MediaStore a un `NOT IN`. Aquel enfoque reventaba con
+        // `SQLiteException: too many SQL variables` en galerías normales (tope de
+        // 999 variables de enlace en API 26–30).
+        val existing = existingIds.toHashSet()
+        val orphans = reviewedIds.filter { it !in existing }
+        if (orphans.isEmpty()) return
+
+        // El borrado se trocea para no volver a chocar con el tope de variables.
+        orphans.chunked(ORPHAN_DELETE_CHUNK).forEach { reviewedMediaDao.deleteByIds(it) }
+    }
+
+    private companion object {
+        // Margen bajo el SQLITE_MAX_VARIABLE_NUMBER de API 26–30 (999).
+        const val ORPHAN_DELETE_CHUNK = 900
     }
 }
